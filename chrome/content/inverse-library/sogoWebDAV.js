@@ -374,10 +374,10 @@ function sogoWebDAV(url, target, data, synchronous, asJSON) {
         this.synchronous = synchronous;
     }
     
-    if (typeof asJSON == "undefined") {
-        this.requestJSONResponse = true;
-        this.requestXMLResponse = false;
-    } else {
+    this.requestJSONResponse = false;
+    this.requestXMLResponse = false;
+
+    if (typeof asJSON != "undefined") {
         this.requestJSONResponse = asJSON;
         this.requestXMLResponse = !asJSON;
     }
