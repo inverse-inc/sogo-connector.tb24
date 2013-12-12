@@ -1,0 +1,16 @@
+diff -ru sogo-connector-24.0.2/chrome/content/sogo-connector/general/sync.addressbook.groupdav.js sogo-connector-24.0.2-custom/chrome/content/sogo-connector/general/sync.addressbook.groupdav.js
+--- sogo-connector-24.0.2/chrome/content/sogo-connector/general/sync.addressbook.groupdav.js	2013-11-22 13:31:04.000000000 -0700
++++ sogo-connector-24.0.2-custom/chrome/content/sogo-connector/general/sync.addressbook.groupdav.js	2013-12-06 11:48:35.935676268 -0700
+@@ -920,6 +920,12 @@
+ 			      if (typeof(prop["getcontenttype"]) == "undefined")
+ 				continue;
+ 
++                                // If the href ends with a '/' then we have recieved a collection in the response
++                                // This should be ignored, otherwise we end up with a empty key below.
++                                // This causes extra address book entries to be created. See Bug: 1411
++                                if (href.indexOf("/", href.length -1) !== -1)
++                                    continue;
++
+ 			        let contType = prop["getcontenttype"][0];
+ 
+                                 if (this.isSupportedContentType(contType)) {

@@ -190,7 +190,9 @@ function saveCard(isNewCard) {
         if (gSCCardValues.documentDirty
             && isGroupdavDirectory(parentURI)) {
             SCSaveCategories();
+            let oldDavVersion = gEditCard.card.getProperty("groupDavVersion", "-1");
             gEditCard.card.setProperty("groupDavVersion", "-1");
+            gEditCard.card.setProperty("groupDavVersionPrev", oldDavVersion);
 
             let abManager = Components.classes["@mozilla.org/abmanager;1"]
                                       .getService(Components.interfaces.nsIAbManager);
