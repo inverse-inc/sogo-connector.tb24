@@ -558,10 +558,29 @@ sogoWebDAV.prototype = {
         }
         else if (operation == "PUT" || operation == "POST") {
 	    if(parameters.contentType.indexOf("text/vcard") == 0) {
-                this._sendHTTPRequest(operation,
+                if (this.cbData.data.getProperty("groupDavKey", "") == "") {
+                    dump("NOTICE: uploading new vcard with empty key\n");
+                    this._sendHTTPRequest(operation,
                                       parameters.data,
                                       { "content-type": parameters.contentType,
 				        "If-None-Match": "*" });
+                }
+                else {
+                    let oldDavVersion = this.cbData.data.getProperty("groupDavVersionPrev", "-1");
+                    dump("NOTICE: uploading modified vcard with etag: " + oldDavVersion + "\n");
+                    if (oldDavVersion != "-1") {
+                        this._sendHTTPRequest(operation,
+                                              parameters.data,
+                                              { "content-type": parameters.contentType,
+				                "If-Match": oldDavVersion });
+                    }
+                    else {
+                        dump("NOTICE: uploading modified vcard without etag\n");
+	                this._sendHTTPRequest(operation,
+                                              parameters.data,
+                                              { "content-type": parameters.contentType });
+                    }
+                }
 	    }
 	    else {
 	        this._sendHTTPRequest(operation,

@@ -1,3 +1,12 @@
+2013-12-09 Jonathan deBoer
+
+	* Fix Bug 1624 (etags ignored during vcard put) enabling proper protection against overwriting 
+	* Connector should now work with rfc compliant carddav servers (such as radicale)
+
+2013-12-06  Jonathan deBoer
+
+	* Fix Bug 1411 (duplicate entries in vcard sync) by ignoring collections in carddav responses.
+
 2013-04-08  Luke Owncloud
 
 	* support charset definition in content-type of vcard (making compatiable with owncloud 5)

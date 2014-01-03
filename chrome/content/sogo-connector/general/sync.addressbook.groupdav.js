@@ -920,6 +920,12 @@ GroupDavSynchronizer.prototype = {
 			      if (typeof(prop["getcontenttype"]) == "undefined")
 				continue;
 
+                                // If the href ends with a '/' then we have recieved a collection in the response
+                                // This should be ignored, otherwise we end up with a empty key below.
+                                // This causes extra address book entries to be created. See Bug: 1411
+                                if (href.indexOf("/", href.length -1) !== -1)
+                                    continue;
+
 			        let contType = prop["getcontenttype"][0];
 
                                 if (this.isSupportedContentType(contType)) {
