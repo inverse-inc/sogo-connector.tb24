@@ -27,7 +27,7 @@ MANIFEST: MANIFEST-pre
 MANIFEST-pre:
 	@echo install.rdf >> $@
 	@echo COPYING >> $@
-	@echo ChangeLog >> $@
+	@echo ChangeLog.old >> $@
 	@find . -type f -name "*.manifest" >> $@
 	@find . -type f -name "*.xul" >> $@
 	@find . -type f -name "*.xml" >> $@
