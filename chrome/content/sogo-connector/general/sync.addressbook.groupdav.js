@@ -55,6 +55,50 @@ let SOGOC_PROCESS_CARDS = 0;
 let SOGOC_PROCESS_LISTS = 1;
 let SOGOC_PROCESS_FINALIZE = 2;
 
+
+let SOGOC_SYNC_MANUAL = 0;      // manual sync
+let SOGOC_SYNC_WRITE = 1;       // manual save in card from addressbook
+let SOGOC_SYNC_PERIODIC = 2;    // periodic sync
+let SOGOC_SYNC_STARTUP = 3;     // startup
+
+function loadNotificationsStrings() {
+    var SOGO_Notifications_Strings = {};
+
+    let keys = ['notificationsTitle', 'notificationsUpload', 'notificationsUploads', 
+                'notificationsDownload', 'notificationsDownloads', 'notificationsDelete', 
+                'notificationsDeletes', 'notificationsNoChanges' ];
+    for (let i in keys) {
+        key = keys[i];
+        SOGO_Notifications_Strings[key] = SOGO_GetString(key);
+    }
+    return SOGO_Notifications_Strings;
+}
+
+function SOGO_GetString(key) {
+    /*
+     * wrapper for localization
+     * 
+     * params :
+     *   key : the name of the property
+     * return :
+     *   the value of property in the current language
+     */
+    let bundle = document.getElementById("sogoStringBundle");
+    dump("Bundle="+bundle);
+    if (bundle)
+        return bundle.getString(key);
+    else
+        return key;
+    /*
+     * Alternate way
+     * 
+    let bundleService = Components.classes["@mozilla.org/intl/stringbundle;1"].getService(Components.interfaces.nsIStringBundleService);
+    let bundle = bundleService.createBundle("chrome://mrc_compose/locale/mrc_compose.properties");
+    let str = bundle.GetStringFromName(key);
+    return str;
+    */
+}
+
 let sCounter = 0;
 function GroupDavSynchronizer(uri) {
     if (typeof uri == "undefined" || !uri)
@@ -1510,7 +1554,169 @@ new:
     }
 };
 
-function SynchronizeGroupdavAddressbook(uri, callback, callbackData) {
+
+function GetSyncNotifyGroupdavAddressbook(uri, ab, origin) {
+    /*
+     * Returns an timer object that handle syncs.
+     * He can be used in a timer or as a one-call sync.
+     * 
+     * params :
+     *      uri :   text, the URI of CardDAV addressbook.
+     *      ab :    object, the (OPTIONAL) addressbook object.
+     *              Depending on the calling chain, it is defined
+     *              only for periodic sync.
+     *      origin : int
+     *              0 : manual sync
+     *              1 : manual save in card from addressbook
+     *              2 : periodic sync
+     *              3 : startup
+     */
+    let notifications = false;
+    let notificationsOnlyIfNotEmpty = false;
+    let notificationsManual = true;
+    let notificationsSave = false;
+    let notificationsStart = true;
+    let dirName = uri;
+    if(typeof(ab) === 'undefined' || ab === null) {
+        ab = false;
+
+        // search addressbook with URI :
+        // needed to get :
+        //   - ab dirName
+        //   - notification prefs
+        let abManager = Components.classes["@mozilla.org/abmanager;1"]
+                                  .getService(Components.interfaces.nsIAbManager);
+
+        let children = abManager.directories;
+        while (children.hasMoreElements()) {
+            let ab = children.getNext().QueryInterface(Components.interfaces.nsIAbDirectory);
+            if (ab.URI === uri) {
+                dirName = ab.dirName;
+                let dirPrefId = ab.dirPrefId;                
+                let groupdavPrefService = new GroupdavPreferenceService(dirPrefId);
+                try {
+                    notifications = groupdavPrefService.getNotifications();
+                    notificationsOnlyIfNotEmpty = groupdavPrefService.getNotificationsOnlyIfNotEmpty();
+                    notificationsManual = groupdavPrefService.getNotificationsManual();
+                    notificationsSave = groupdavPrefService.getNotificationsSave();
+                    notificationsStart = groupdavPrefService.getNotificationsStart();
+                } catch(e) {
+                }
+            }
+        }
+
+    } else {
+        dirName = ab.dirName;
+        let dirPrefId = ab.dirPrefId;
+        let groupdavPrefService = new GroupdavPreferenceService(dirPrefId);
+        try {
+            notifications = groupdavPrefService.getNotifications();
+            notificationsOnlyIfNotEmpty = groupdavPrefService.getNotificationsOnlyIfNotEmpty();            
+            notificationsManual = groupdavPrefService.getNotificationsManual();
+            notificationsSave = groupdavPrefService.getNotificationsSave();
+            notificationsStart = groupdavPrefService.getNotificationsStart();
+        } catch(e) {
+        }
+    }
+    if(typeof(origin) === 'undefined') {
+        origin = SOGOC_SYNC_MANUAL;
+    }
+
+    var sync = {
+        URI : uri,
+        dirName : dirName,
+        origin : origin,
+        notifications : notifications,
+        notificationsOnlyIfNotEmpty : notificationsOnlyIfNotEmpty,
+        notificationsManual : notificationsManual,
+        notificationsSave : notificationsSave,
+        notificationsStart : notificationsStart,
+        notificationsStrings : loadNotificationsStrings(),
+        
+        notify: function(timer) {
+            this.synchronizer = new GroupDavSynchronizer(this.URI);
+            this.synchronizer.callback = this.cbSynchronize;
+            this.synchronizer.callbackData = this;
+            this.synchronizer.start();
+        },
+      
+        cbSynchronize: function (cbURL, cbCode, cbFailures, cbData) {
+            //
+            // Can't use 'this' because it is a callback.
+            // 
+            let title = cbData.notificationsStrings['notificationsTitle']+cbData.dirName;
+            let texte = "";
+            let total = (cbData.synchronizer.localUploads
+                         + cbData.synchronizer.serverDownloadsCount
+                         + cbData.synchronizer.serverDeletes.length);
+            if (total > 0) {
+                texte = "";
+                if( cbData.synchronizer.localUploads <= 1)
+                    texte += cbData.synchronizer.localUploads+cbData.notificationsStrings['notificationsUpload'];
+                if( cbData.synchronizer.localUploads > 1)
+                    texte += cbData.synchronizer.localUploads+cbData.notificationsStrings['notificationsUploads'];
+
+                if( cbData.synchronizer.serverDownloadsCount <= 1)
+                    texte += cbData.synchronizer.serverDownloadsCount+cbData.notificationsStrings['notificationsDownload'];
+                if( cbData.synchronizer.serverDownloadsCount > 1)
+                    texte += cbData.synchronizer.serverDownloadsCount+cbData.notificationsStrings['notificationsDownloads'];
+
+                if( cbData.synchronizer.serverDeletes <= 1)
+                    texte += cbData.synchronizer.serverDeletes.length+cbData.notificationsStrings['notificationsDelete'];
+                if( cbData.synchronizer.serverDeletes > 1)
+                    texte += cbData.synchronizer.serverDeletes.length+cbData.notificationsStrings['notificationsDeletes'];
+                
+            } else {
+                texte = cbData.notificationsStrings['notificationsNoChanges'];
+            }
+            switch (cbData.origin) {
+                case (SOGOC_SYNC_MANUAL):
+                    // manual
+                    if(cbData.notificationsManual)
+                        cbData.notifyUser(title, texte);
+                    break;
+                    
+                case SOGOC_SYNC_WRITE:
+                    // save of card
+                    if(cbData.notificationsSave)
+                        cbData.notifyUser(title, texte);
+                    break;
+                
+                case SOGOC_SYNC_PERIODIC:
+                    // periodic sync
+                    if (cbData.notifications) {
+                        if (cbData.notificationsOnlyIfNotEmpty) {
+                            if (total > 0) {
+                                cbData.notifyUser(title, texte);
+                            }
+                        } else {
+                            cbData.notifyUser(title, texte);
+                        }
+                    }
+                    break;
+
+                case SOGOC_SYNC_STARTUP:
+                    // startup
+                    if (cbData.notificationsStart)
+                        cbData.notifyUser(title, texte);
+                    break;
+            }
+        },
+
+        notifyUser: function(atitle, atexte) {
+            Components.classes['@mozilla.org/alerts-service;1']
+                .getService(Components.interfaces.nsIAlertsService)
+                .showAlertNotification(null, atitle, atexte, false, '', null);
+        }
+    }
+
+    return sync;
+}
+
+function SynchronizeGroupdavAddressbook(uri, callback, origin) {
+    /*
+     * old version
+     * 
     // dump("sync uri: " + uri + "\n");
     let synchronizer = new GroupDavSynchronizer(uri);
     // dump("callback:" + callback + "\n");
@@ -1518,6 +1724,12 @@ function SynchronizeGroupdavAddressbook(uri, callback, callbackData) {
     synchronizer.callback = callback;
     synchronizer.callbackData = callbackData;
     synchronizer.start();
+    */
+
+    // new version with sync
+    var sync = GetSyncNotifyGroupdavAddressbook(uri, null, origin);
+    sync.notify();
+    
 }
 
 function SynchronizeGroupdavAddressbookAbort(uri) {

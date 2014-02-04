@@ -127,8 +127,8 @@ GroupdavPreferenceService.prototype = {
             value = this.mPreferencesService.getCharPref(this.prefPath + prefName);
         }
         catch(e) {
-            // dump("exception getting pref '" + this.prefPath + prefName
-            //      + "': \n" + e + " (" + e.lineNumber + ")\n");
+            dump("exception getting pref '" + this.prefPath + prefName
+                  + "': \n" + e + " (" + e.lineNumber + ")\n");
             // dump("  stack:\n" + backtrace() + "\n");
             throw("unacceptable condition: " + e);
         }
@@ -229,6 +229,57 @@ GroupdavPreferenceService.prototype = {
     },
     setWebdavSyncToken: function GdPSvc_setWebdavSyncToken(value) {
         this._setPref("sync-token", value);
+    },
+
+
+    getPeriodicSync: function GdPSvc_getPeriodicSync() {
+        return this._getBoolPref("periodicSync");
+    },
+    setPeriodicSync: function GdPSvc_setPeriodicSync(value) {
+        this._setBoolPref("periodicSync", value);
+    },
+    
+    getPeriodicSyncInterval: function GdPSvc_getPeriodicSyncInterval() {
+        return this._getPrefWithDefault("periodicSyncInterval", "15");
+    },
+    setPeriodicSyncInterval: function GdPSvc_setPeriodicSyncInterval(value) {
+        this._setPref("periodicSyncInterval", value);
+    },
+
+
+    getNotifications: function GdPSvc_getNotifications() {
+        return this._getBoolPref("notifications");
+    },
+    setNotifications: function GdPSvc_setNotifications(value) {
+        this._setBoolPref("notifications", value);
+    },
+
+    getNotificationsOnlyIfNotEmpty: function GdPSvc_getNotificationsOnlyIfNotEmpty() {
+        return this._getBoolPref("notificationsNotEmpty");
+    },
+    setNotificationsOnlyIfNotEmpty: function GdPSvc_setNotificationsOnlyIfNotEmpty(value) {
+        this._setBoolPref("notificationsNotEmpty", value);
+    },
+
+    getNotificationsManual: function GdPSvc_getNotificationsManual() {
+        return this._getBoolPref("notificationsManual");
+    },
+    setNotificationsManual: function GdPSvc_setNotificationsManual(value) {
+        this._setBoolPref("notificationsManual", value);
+    },
+    
+    getNotificationsSave: function GdPSvc_getNotificationsSave() {
+        return this._getBoolPref("notificationsSave");
+    },
+    setNotificationsSave: function GdPSvc_setNotificationsSave(value) {
+        this._setBoolPref("notificationsSave", value);
+    },
+
+    getNotificationsStart: function GdPSvc_getNotificationsStart() {
+        return this._getBoolPref("notificationsStart");
+    },
+    setNotificationsStart: function GdPSvc_setNotificationsStart(value) {
+        this._setBoolPref("notificationsStart", value);
     }
 };
 

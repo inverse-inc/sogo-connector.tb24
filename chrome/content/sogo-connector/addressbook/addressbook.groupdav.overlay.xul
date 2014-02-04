@@ -44,6 +44,15 @@
   <script type="application/x-javascript"
     src="chrome://sogo-connector/content/addressbook/addressbook.groupdav.overlay.js"/>
 
+    <!-- 
+    MUST USE THE EXISTING id OF BUNDLESET OF ORIGINAL XUL FILE 
+      ===> it means we add the stringbundle to the existing stringbundleset
+    -->
+    <stringbundleset id="stringbundleset">
+        <stringbundle id="sogoStringBundle" src="chrome://sogo-connector/locale/addressbook/messenger.groupdav.overlay.properties"/>
+    </stringbundleset>
+
+
   <commandset id="addressBook">
     <command id="cmd_syncGroupdav" oncommand="SCCommandSynchronize();"/>
     <command id="cmd_syncAbortGroupdav" oncommand="SCCommandSynchronizeAbort();"/>

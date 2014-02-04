@@ -74,6 +74,20 @@ Modifications to original file pref-directory-add.xul by:
 <!ENTITY groupDavServerType.label         "Type de serveur GroupDAV:">
 <!ENTITY groupDavServerType.accesskey     "G">
 
+<!ENTITY groupdavPeriodicSync.label       "Synchronisation Périodique" >
+<!ENTITY groupdavPeriodicSync5m.label     "5 min" >
+<!ENTITY groupdavPeriodicSync15m.label    "15 min" >
+<!ENTITY groupdavPeriodicSync1h.label     "1 h" >
+<!ENTITY groupdavPeriodicSync2h.label     "2 h" >
+<!ENTITY groupdavNotifications.label      "Afficher les Notifications" >
+
+<!ENTITY groupdavNotificationsOINE.label  "Notifier seulement si des données synchronisées" >
+<!ENTITY groupdavNotificationsRestart.label "Les changements d'options pour 'Synchronisation Périodique' nécessitent un redémarrage de Thunderbird." >
+<!ENTITY groupdavNotificationsManual.label "Afficher les Notifications pour les synchronisations manuelles" >
+<!ENTITY groupdavNotificationsManual.info  "Quand vous choisissez 'Synchroniser' depuis la barre d'outils ou le menu contextuel." >
+<!ENTITY groupdavNotificationsSave.label   "Afficher les Notifications lors de l'enregistrement d'une fiche" >
+<!ENTITY groupdavNotificationsSave.info    "La notification par défaut est une barre de progression dans la barre de statut. Si cochée, une notification générale sera affichée." >
+<!ENTITY groupdavNotificationsStart.label  "Afficher les Notifications au démarrage" >
 
 <!ENTITY General.tab                       "Général">
 <!ENTITY Offline.tab                       "Hors-ligne">

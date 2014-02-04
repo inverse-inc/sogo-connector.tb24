@@ -1,7 +1,10 @@
 NEWS
 ====
 
-For later changes see ChangeLog.
+24.0.4	Improved etag handling (#1411 and #1624)
+	Handle periodic syncing of address books
+
+For later changes see ChangeLog.old
 
 0.92
 	Fixed unescaping of special characters (\r, \n, ...) from VCARD content

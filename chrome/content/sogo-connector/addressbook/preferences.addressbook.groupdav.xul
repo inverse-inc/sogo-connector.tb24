@@ -113,10 +113,65 @@ Modifications by
 	  <textbox id="groupdavURL" flex="1" disableiflocked="true" class="uri-element"/>							
 	  <spacer flex="1"/>
 	</row>						  
+
       </rows>
     </grid>
+
+
+    <grid flex="1">
+      <columns>
+        <column/>
+        <column flex="1"/>
+      </columns>
+
+      <rows >
+        <separator/>
+        <row  align="center" flex="1">
+            <checkbox id="periodicSync" label="&groupdavPeriodicSync.label;" oncommand="onUpdateCheck();onShowRestart()" />
+            <menulist id="periodicSyncInterval" oncommand="onShowRestart()" >
+                <menupopup>
+                    <menuitem label="&groupdavPeriodicSync5m.label;" value="5"/>
+                    <menuitem label="&groupdavPeriodicSync15m.label;" value="15"/>
+                    <menuitem label="&groupdavPeriodicSync1h.label;" value="60"/>
+                    <menuitem label="&groupdavPeriodicSync2h.label;" value="120"/>
+                </menupopup>
+            </menulist>        
+        </row>
+        <row  align="center" flex="1">
+            <spacer flex="1"/>
+            <hbox>
+                <checkbox id="notifications" label="&groupdavNotifications.label;" oncommand="onUpdateCheck()" />
+                <checkbox id="notificationsOnlyIfNotEmpty" label="&groupdavNotificationsOINE.label;"  />
+            </hbox>
+        </row>
+
+        <row  align="center" flex="1">
+            <spacer flex="1"/>
+            <label id="periodicSync_restart" hidden="true"
+                    style="font-style:italic"
+                    value="&groupdavNotificationsRestart.label;" />
+        </row>
+      </rows>
+    </grid>
+
+    <separator/>
+    <checkbox id="notificationsManual" label="&groupdavNotificationsManual.label;"  />
+    <label  style="font-style:italic"
+            value="&groupdavNotificationsManual.info;" />
+
+    <separator/>
+    <checkbox id="notificationsSave" label="&groupdavNotificationsSave.label;" />
+    <label  style="font-style:italic"
+            value="&groupdavNotificationsSave.info;" />
+
+    <separator/>
+    <checkbox id="notificationsStart" label="&groupdavNotificationsStart.label;" />
+        
+
     <separator/>
     <checkbox id="readOnly" label="&ReadOnly.label;" accesskey="&ReadOnly.accesskey;"/>
+
+
   </vbox>
   <!--			</tabpanel>
   <tabpanel id="downloadPanel">

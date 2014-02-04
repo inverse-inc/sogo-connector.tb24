@@ -579,7 +579,7 @@ function SCAbConfirmDeleteDirectory(selectedDir) {
 }
 
 function SCSynchronizeFromChildWindow(uri) {
-    this.setTimeout(SynchronizeGroupdavAddressbook, 1, uri, null);
+    this.setTimeout(SynchronizeGroupdavAddressbook, 1, uri, null, 1);
 }
 
 let groupdavSynchronizationObserver = {
@@ -847,7 +847,7 @@ function SCCommandSynchronize() {
     SynchronizeGroupdavAddressbook(gSelectedDir, SCCommandSynchronizeCallback);
 }
 
-function SCCommandSynchronizeCallback(url, code, failures) {
+function SCCommandSynchronizeCallback(url, code, failures, datas) {
     dump("SCCommandSynchronizeCallback\n");
     dump("  url: " + url + "\n");
     dump("  code: " + code + "\n");

@@ -108,11 +108,34 @@ function onAcceptWebDAV() {
                                          done */);
     }
 
-    let groupdavPrefService = new GroupdavPreferenceService(prefId);
-    groupdavPrefService.setURL(document.getElementById("groupdavURL").value);
+    try {
+        let groupdavPrefService = new GroupdavPreferenceService(prefId);
+        groupdavPrefService.setURL(document.getElementById("groupdavURL").value);
+        
+        groupdavPrefService.setPeriodicSync(document.getElementById("periodicSync").checked);
+        groupdavPrefService.setPeriodicSyncInterval(document.getElementById("periodicSyncInterval").value);
+
+        groupdavPrefService.setNotifications(document.getElementById("notifications").checked);
+        groupdavPrefService.setNotificationsOnlyIfNotEmpty(document.getElementById("notificationsOnlyIfNotEmpty").checked);
+
+        groupdavPrefService.setNotificationsManual(document.getElementById("notificationsManual").checked);
+        groupdavPrefService.setNotificationsSave(document.getElementById("notificationsSave").checked);
+        groupdavPrefService.setNotificationsStart(document.getElementById("notificationsStart").checked);
+    } catch(e) {
+    }
 }
 
 function onLoad() {
+    let description = "";
+    let url = "";
+    let periodicSync = false;
+    let periodicSyncInterval = 15;
+    let notifications = true;
+    let notificationsOnlyIfNotEmpty = false;
+    let notificationsManual = true;
+    let notificationsSave = false;
+    let notificationsStart = true;
+
     let directory = SCGetCurrentDirectory();
     if (directory) {
         let uri = directory.URI;
@@ -121,22 +144,58 @@ function onLoad() {
         roElem.setAttribute("checked", readOnly);
         roElem.disabled = true;
 
-        let description = "";
-        let url = "";
-
+        
         if (readOnly) {
             description = directory.dirName;
             directory = directory.wrappedJSObject;
             url = directory.serverURL;
         }
-        else {
+
+        try {
             let groupdavPrefService = new GroupdavPreferenceService(directory.dirPrefId);
             description = directory.dirName;
             url = groupdavPrefService.getURL();
+
+            periodicSync = groupdavPrefService.getPeriodicSync();
+            periodicSyncInterval = groupdavPrefService.getPeriodicSyncInterval();
+
+            notifications = groupdavPrefService.getNotifications();
+            notificationsOnlyIfNotEmpty = groupdavPrefService.getNotificationsOnlyIfNotEmpty();            
+            notificationsManual = groupdavPrefService.getNotificationsManual();
+            notificationsSave = groupdavPrefService.getNotificationsSave();
+            notificationsStart = groupdavPrefService.getNotificationsStart();
+        } catch(e) {
         }
-        document.getElementById("description").value = description;
-        document.getElementById("groupdavURL").value = url;
+
     }
+
+    // always define values
+    document.getElementById("description").value = description;
+    document.getElementById("groupdavURL").value = url;
+
+    document.getElementById("periodicSync").checked = periodicSync;
+    document.getElementById("periodicSyncInterval").value = periodicSyncInterval;
+    
+    document.getElementById("notifications").checked = notifications;
+    document.getElementById("notificationsOnlyIfNotEmpty").checked = notificationsOnlyIfNotEmpty;
+    document.getElementById("notificationsManual").checked = notificationsManual;
+    document.getElementById("notificationsSave").checked = notificationsSave;
+    document.getElementById("notificationsStart").checked = notificationsStart;
+
+    onUpdateCheck();
+}
+
+function onUpdateCheck() {
+    var psc = document.getElementById("periodicSync").checked;
+    var nc = document.getElementById("notifications").checked;
+    document.getElementById("periodicSyncInterval").disabled = !psc;    
+    document.getElementById("notifications").disabled = !psc;
+    document.getElementById("notificationsOnlyIfNotEmpty").disabled = !nc || !psc;
+}
+
+function onShowRestart() {
+    // show the info about restart
+    document.getElementById("periodicSync_restart").hidden = false;
 }
 
 //TODO:catch the directory delete and delete preferences
