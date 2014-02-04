@@ -1506,8 +1506,13 @@ new:
                 let total = (this.localUploads
                              + this.serverDownloadsCount
                              + this.serverDeletes.length);
-                if (total > 0)
-                    this.progressMgr.unregisterAddressBook(this.gURL);
+                if (total > 0) {
+                    // allow a delay before hiding the progressNotification
+                    var that = this;
+                    window.setTimeout(function() {
+                            that.progressMgr.unregisterAddressBook(that.gURL);
+                        }, 1000);
+                }
                 dump("  " + this.mCounter +"/sync with " + this.gURL + " has ended.\n\n");
                 this.context.requests[this.gURL] = null;
             }

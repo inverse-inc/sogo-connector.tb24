@@ -3,6 +3,7 @@ NEWS
 
 24.0.4	Improved etag handling (#1411 and #1624)
 	Handle periodic syncing of address books
+	Provide basic visual feedback when syncing is occuring (#2328)
 
 For later changes see ChangeLog.old
 
