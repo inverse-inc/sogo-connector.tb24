@@ -1028,7 +1028,7 @@ GroupDavSynchronizer.prototype = {
                 this.abort();
         }
         else {
-            dump("onServerHashQueryComlete: the server returned an empty response\n");
+            dump("onServerHashQueryComplete: the server returned an empty response\n");
             this.abort();
         }
     },
