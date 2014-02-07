@@ -1029,17 +1029,7 @@ GroupDavSynchronizer.prototype = {
         }
         else {
             dump("onServerHashQueryComlete: the server returned an empty response\n");
-            // We handle a special case : server returns a 403 status but with an empty response.
-            // It is not well defined in RFC how to handle that.
-            // It seems that IceWarp Server wants the client to retry without a token.
-            if (status == 403) {
-                dump("[sogo-connector] received '403' status"
-                     + ", retrying without a token...\n");
-                this.webdavSyncToken = "";
-                this.triggerWebDAVSync();
-            } else {
-                this.abort();
-            }
+            this.abort();
         }
     },
 
@@ -1275,8 +1265,20 @@ new:
                 }
             }
         }
-        else
-            dump("onServerHashQueryComlete: the server returned an empty response\n");
+        else {
+            dump("onServerSyncQueryComplete: the server returned an empty response\n");
+            // We handle a special case : server returns a 403 status but with an empty response.
+            // It is not well defined in RFC how to handle that.
+            // It seems that IceWarp Server wants the client to retry without a token.
+            if (status == 403) {
+                dump("[sogo-connector] received '403' status"
+                     + ", retrying without a token...\n");
+                this.webdavSyncToken = "";
+                this.triggerWebDAVSync();
+            } else {
+                this.abort();
+            }
+        }
     },
 
     processCards: function() {
