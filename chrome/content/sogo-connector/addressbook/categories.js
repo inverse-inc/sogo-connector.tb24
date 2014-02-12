@@ -6,6 +6,7 @@ let SCContactCategories = {
                                     .getService(Components.interfaces.nsIPrefBranch);
         try {
             cats = prefService.getCharPref("sogo-connector.contacts.categories");
+            cats = decodeURIComponent(escape(cats));
         }
         catch(e) {
             let strService = Components.classes["@mozilla.org/intl/stringbundle;1"]
@@ -20,7 +21,7 @@ let SCContactCategories = {
     setCategoriesAsString: function SCCC_setCategoriesAsString(cats) {
         let prefService = Components.classes["@mozilla.org/preferences-service;1"]
                                     .getService(Components.interfaces.nsIPrefBranch);
-        prefService.setCharPref("sogo-connector.contacts.categories", cats);
+        prefService.setCharPref("sogo-connector.contacts.categories", unescape(encodeURIComponent(cats)));
     },
 
     getCategoriesAsArray: function SCCC_getCategoriesAsArray() {
