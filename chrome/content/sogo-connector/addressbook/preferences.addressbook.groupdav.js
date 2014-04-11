@@ -76,6 +76,33 @@ function onAccept() {
     return true;
 }
 
+function fixedEncodeURI(str) {
+    var URLParser = Components.classes["@mozilla.org/network/url-parser;1?auth=yes"]
+        .getService(Components.interfaces.nsIURLParser);
+    let uriData = [str, str.length, {}, {}, {}, {}, {}, {}];
+    URLParser.parseURL.apply(URLParser, uriData);
+    let [{ value: schemePos }, { value: schemeLen },
+      { value: authPos }, { value: authLen },
+      { value: pathPos }, { value: pathLen }] = uriData.slice(2);
+
+    let scheme = str.substr(schemePos, schemeLen);
+    // We let XPCOM url-parser decide if an '@' is a part of authentication or a path component
+    // (actually, authentication should not be specified in the URL, there's separate UI for that)
+    // ipv6 does not need special processing, and other special characters are not allowed in
+    // the authority (user:pass@host:port) section
+    // TODO: IDN
+    let auth = str.substr(authPos, authLen);
+    let path = str.substr(pathPos, pathLen);
+    let encodedPath = encodeURI(path).replace(/@/g, '%40');
+    let encodedURI = scheme + '://' + auth + encodedPath;
+    
+    return encodedURI;
+}
+
+function fixedDecodeURI(str) {
+    return decodeURI(str.replace(/%40/g, '@'));
+}
+
 function onAcceptCardDAV() {
     let description = document.getElementById("description").value;
 
@@ -84,7 +111,7 @@ function onAcceptCardDAV() {
         directory.dirName = description;
     }
     else {
-        let url = document.getElementById("groupdavURL").value;
+        let url = fixedEncodeURI(document.getElementById("groupdavURL").value);
         SCCreateCardDAVDirectory(description, url);
     }
 }
@@ -110,7 +137,8 @@ function onAcceptWebDAV() {
 
     try {
         let groupdavPrefService = new GroupdavPreferenceService(prefId);
-        groupdavPrefService.setURL(document.getElementById("groupdavURL").value);
+        let url = fixedEncodeURI(document.getElementById("groupdavURL").value);
+        groupdavPrefService.setURL(url);
         
         groupdavPrefService.setPeriodicSync(document.getElementById("periodicSync").checked);
         groupdavPrefService.setPeriodicSyncInterval(document.getElementById("periodicSyncInterval").value);
@@ -171,7 +199,7 @@ function onLoad() {
 
     // always define values
     document.getElementById("description").value = description;
-    document.getElementById("groupdavURL").value = url;
+    document.getElementById("groupdavURL").value = fixedDecodeURI(url);
 
     document.getElementById("periodicSync").checked = periodicSync;
     document.getElementById("periodicSyncInterval").value = periodicSyncInterval;
