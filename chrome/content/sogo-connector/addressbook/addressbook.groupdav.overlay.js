@@ -446,20 +446,19 @@ function SCAbConfirmDelete(types) {
         let promptService = Components.classes["@mozilla.org/embedcomp/prompt-service;1"]
                                       .getService(Components.interfaces.nsIPromptService);
 
-        confirm = true;
-        if (types != kCardsOnly) {
-            let confirmDeleteMessage;
-            if (types == kListsAndCards)
-                confirmDeleteMessage
-                = gAddressBookBundle.getString("confirmDeleteListsAndContacts");
-            else if (types == kMultipleListsOnly)
-            confirmDeleteMessage
-                = gAddressBookBundle.getString("confirmDeleteMailingLists");
-            else
-                confirmDeleteMessage
-                = gAddressBookBundle.getString("confirmDeleteMailingList");
-            confirm = (promptService.confirm(window, null, confirmDeleteMessage));
+        let confirmDeleteMessage;
+        if (types == kListsAndCards)
+            confirmDeleteMessage = gAddressBookBundle.getString("confirmDeleteListsAndContacts");
+        else if (types == kMultipleListsOnly)
+            confirmDeleteMessage = gAddressBookBundle.getString("confirmDeleteMailingLists");
+        else if (types == kCardsOnly && gAbView && gAbView.selection) {
+             if (gAbView.selection.count < 2)
+                 confirmDeleteMessage = gAddressBookBundle.getString("confirmDeleteContact");
+             else
+                 confirmDeleteMessage = gAddressBookBundle.getString("confirmDeleteContacts");
         }
+        else confirmDeleteMessage = gAddressBookBundle.getString("confirmDeleteMailingList");
+        confirm = promptService.confirm(window, null, confirmDeleteMessage);
     }
 
     return confirm;
@@ -471,11 +470,14 @@ function SCAbDelete() {
     if (gSelectedDir) {
         if (isGroupdavDirectory(gSelectedDir)) {
             let types = GetSelectedCardTypes();
-            if (types != kNothingSelected && SCAbConfirmDelete(types)) {
-                let cards = GetSelectedAbCards();
-                // let abView = GetAbView();
-                DeleteGroupDAVCards(gSelectedDir, cards, true);
-                deletePerformed = true;
+            if (types != kNothingSelected) {
+                let confirm = SCAbConfirmDelete(types);
+                if (!confirm) return else {
+                    let cards = GetSelectedAbCards();
+                    // let abView = GetAbView();
+                    DeleteGroupDAVCards(gSelectedDir, cards, true);
+                    deletePerformed = true;
+                }
             }
         }
         else if (gSelectedDir.search("mab/MailList") > -1) {
