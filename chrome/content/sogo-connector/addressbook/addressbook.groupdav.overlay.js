@@ -472,7 +472,9 @@ function SCAbDelete() {
             let types = GetSelectedCardTypes();
             if (types != kNothingSelected) {
                 let confirm = SCAbConfirmDelete(types);
-                if (!confirm) return else {
+                if (!confirm)
+                    return;
+                else {
                     let cards = GetSelectedAbCards();
                     // let abView = GetAbView();
                     DeleteGroupDAVCards(gSelectedDir, cards, true);
