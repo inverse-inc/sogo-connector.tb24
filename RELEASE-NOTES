@@ -4,6 +4,8 @@ NEWS
 24.0.5  We now ask for a confirmation when deleting cards (#1706)
         Fixed handling of 403 error codes when uploading cards (#2714)
         Added missing translation for hu-HU
+	Fixed major issue in passwords handling (#2739). SOGo Connector
+        now depends on Lightning (as it reuses it password handling code)
 
 24.0.4	Improved etag handling (#1411 and #1624)
 	Handle periodic syncing of address books

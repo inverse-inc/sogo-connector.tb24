@@ -1,7 +1,6 @@
 /* CardDAVDirectory.js - This file is part of "SOGo Connector", a Thunderbird extension.
  *
- * Copyright: Inverse inc., 2006-2010
- *    Author: Robert Bolduc, Wolfgang Sourdeau
+ * Copyright: Inverse inc., 2006-2014
  *     Email: support@inverse.ca
  *       URL: http://inverse.ca
  *
@@ -93,25 +92,25 @@ CardDAVDirectory.prototype = {
 	// this back when we have proper caching in place.
 	return null;
 
-    	let card = this.mCardCache[emailAddress];
-        if (card) {
-            if (!(card instanceof Components.interfaces.nsIAbCard)) {
-                card = null;
-            }
-        }
-        else {
-            let card = null;
-            let httpURL = this.serverURL;
-            if (httpURL) {
-                let resultArray = this._serverQuery(httpURL, emailAddress);
-                if (resultArray.length > 0) {
-                    card = resultArray.queryElementAt(0, Components.interfaces.nsIAbCard);
-                }
-            }
-            this.mCardCache[emailAddress] = (card ? card : "none");
-        }
+    	// let card = this.mCardCache[emailAddress];
+        // if (card) {
+        //     if (!(card instanceof Components.interfaces.nsIAbCard)) {
+        //         card = null;
+        //     }
+        // }
+        // else {
+        //     let card = null;
+        //     let httpURL = this.serverURL;
+        //     if (httpURL) {
+        //         let resultArray = this._serverQuery(httpURL, emailAddress);
+        //         if (resultArray.length > 0) {
+        //             card = resultArray.queryElementAt(0, Components.interfaces.nsIAbCard);
+        //         }
+        //     }
+        //     this.mCardCache[emailAddress] = (card ? card : "none");
+        // }
 
-        return card;
+        // return card;
     },
 
     getCardFromProperty: function(aProperty, aValue, aCaseSensitive) {
@@ -261,11 +260,16 @@ CardDAVDirectory.prototype = {
     },
 
     _serverQuery: function(url, criteria) {
-        // dump("serverQuery: url: " + url + "; crite: " + criteria + "\n");
+        //dump("serverQuery: url: " + url + "; crite: " + criteria + "\n");
         let doc = null;
         var listener = {
             onDAVQueryComplete: function(status, response, headers, data) {
-                doc = response;
+                if (status > 199 && status < 400) {
+                    doc = response;
+                }
+                else {
+                    dump("Got invalid status (" + status + ") from server, ignoring response.\n");
+                }
             }
         };
         let report = new sogoWebDAV(url, listener, null, true);
@@ -279,6 +283,8 @@ CardDAVDirectory.prototype = {
                    + '</C:text-match></C:prop-filter></C:filter>'
                    + '</C:addressbook-query>');
         report.requestXMLResponse = true;
+        
+        // This REPORT call is blocking one.
         report.report(req);
 
         let resultArray = Components.classes["@mozilla.org/array;1"]
@@ -292,7 +298,7 @@ CardDAVDirectory.prototype = {
             }
         }
 
-        // dump("query finished\n\n\n");
+        //dump("query finished\n\n\n");
 
         return resultArray;
     },
@@ -550,7 +556,7 @@ CardDAVDirectory.prototype = {
     },
 
     /* additional */
-    get serverURL() {
+    get serverURL() { 
         let httpURL = null;
 
         if (this.mURI && this.mURI.indexOf(gCardDavPrefix) == 0) {

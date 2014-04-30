@@ -1,6 +1,6 @@
 /* sogoWebDAV.js - This file is part of "SOGo Connector", a Thunderbird extension.
  *
- * Copyright: Inverse inc., 2006-2013
+ * Copyright: Inverse inc., 2006-2014
  *
  * "SOGo Connector" is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 as published by
@@ -15,6 +15,9 @@
  * "SOGo Connector"; if not, write to the Free Software Foundation, Inc., 51
  * Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
+
+Components.utils.import("resource://gre/modules/XPCOMUtils.jsm");
+Components.utils.import("resource://calendar/modules/calProviderUtils.jsm");
 
 function jsInclude(files, target) {
     let loader = Components.classes["@mozilla.org/moz/jssubscript-loader;1"]
@@ -124,245 +127,6 @@ function xmlUnescape(text) {
     return s;
 }
 
-/* from Lightning: cal.auth.Prompt */
-/**
- * Calendar Auth prompt implementation. This instance of the auth prompt should
- * be used by providers and other components that handle authentication using
- * nsIAuthPrompt2 and friends.
- *
- * This implementation guarantees there are no request loops when an invalid
- * password is stored in the login-manager.
- *
- * There is one instance of that object per calendar provider.
- */
-function _sogoWebDAVPrompt() {
-    this.mReturnedLogins = {};
-}
-
-_sogoWebDAVPrompt.prototype = {
-    passwordManagerRemove: function calPasswordManagerRemove(aUsername, aHostName, aRealm) {
-        try {
-            let loginManager = Components.classes["@mozilla.org/login-manager;1"]
-                                         .getService(Components.interfaces.nsILoginManager);
-            let logins = loginManager.findLogins({}, aHostName, null, aRealm);
-            for each (let loginInfo in logins) {
-                if (loginInfo.username == aUsername) {
-                    loginManager.removeLogin(loginInfo);
-                    return true;
-                }
-            }
-        } catch (exc) {
-        }
-        return false;
-    },
-
-    getPasswordInfo: function capGPI(aPasswordRealm) {
-        let username;
-        let password;
-        let found = false;
-
-        let loginManager = Components.classes["@mozilla.org/login-manager;1"]
-                                     .getService(Components.interfaces.nsILoginManager);
-        let logins = loginManager.findLogins({}, aPasswordRealm.prePath, null, aPasswordRealm.realm);
-        if (logins.length) {
-            username = logins[0].username;
-            password = logins[0].password;
-            found = true;
-        }
-        if (found) {
-            let keyStr = aPasswordRealm.prePath +":" + aPasswordRealm.realm;
-            let now = new Date();
-            // Remove the saved password if it was already returned less
-            // than 60 seconds ago. The reason for the timestamp check is that
-            // nsIHttpChannel can call the nsIAuthPrompt2 interface
-            // again in some situation. ie: When using Digest auth token
-            // expires.
-            if (this.mReturnedLogins[keyStr] &&
-                now.getTime() - this.mReturnedLogins[keyStr].getTime() < 60000) {
-                // cal.LOG("Credentials removed for: user=" + username + ", host="+aPasswordRealm.prePath+", realm="+aPasswordRealm.realm);
-                delete this.mReturnedLogins[keyStr];
-                this.passwordManagerRemove(username,
-                                           aPasswordRealm.prePath,
-                                           aPasswordRealm.realm);
-                return {found: false, username: username};
-            }
-            else {
-                this.mReturnedLogins[keyStr] = now;
-            }
-        }
-        return {found: found, username: username, password: password};
-    },
-
-    /**
-     * Requests a username and a password. Implementations will commonly show a
-     * dialog with a username and password field, depending on flags also a
-     * domain field.
-     *
-     * @param aChannel
-     *        The channel that requires authentication.
-     * @param level
-     *        One of the level constants NONE, PW_ENCRYPTED, SECURE.
-     * @param authInfo
-     *        Authentication information object. The implementation should fill in
-     *        this object with the information entered by the user before
-     *        returning.
-     *
-     * @retval true
-     *         Authentication can proceed using the values in the authInfo
-     *         object.
-     * @retval false
-     *         Authentication should be cancelled, usually because the user did
-     *         not provide username/password.
-     *
-     * @note   Exceptions thrown from this function will be treated like a
-     *         return value of false.
-     */
-    promptAuth: function capPA(aChannel, aLevel, aAuthInfo) {
-        let hostRealm = {};
-        hostRealm.prePath = aChannel.URI.prePath;
-        hostRealm.realm = aAuthInfo.realm;
-        let port = aChannel.URI.port;
-        if (port == -1) {
-            let IOService = Components.classes["@mozilla.org/network/io-service;1"]
-                                      .getService(Components.interfaces.nsIIOService2);
-            let handler = IOService.getProtocolHandler(aChannel.URI.scheme)
-                                   .QueryInterface(Components.interfaces.nsIProtocolHandler);
-            port = handler.defaultPort;
-        }
-        hostRealm.passwordRealm = aChannel.URI.host + ":" + port + " (" + aAuthInfo.realm + ")";
-
-        let pw = this.getPasswordInfo(hostRealm);
-        aAuthInfo.username = pw.username;
-        if (pw && pw.found) {
-            aAuthInfo.password = pw.password;
-            return true;
-        } else {
-            let prompter2 = Components.classes["@mozilla.org/embedcomp/window-watcher;1"]
-                                      .getService(Components.interfaces.nsIPromptFactory)
-                                      .getPrompt(null, Components.interfaces.nsIAuthPrompt2);
-            return prompter2.promptAuth(aChannel, aLevel, aAuthInfo);
-        }
-    },
-
-    /**
-     * Asynchronously prompt the user for a username and password.
-     * This has largely the same semantics as promptAuth(),
-     * but must return immediately after calling and return the entered
-     * data in a callback.
-     *
-     * If the user closes the dialog using a cancel button or similar,
-     * the callback's nsIAuthPromptCallback::onAuthCancelled method must be
-     * called.
-     * Calling nsICancelable::cancel on the returned object SHOULD close the
-     * dialog and MUST call nsIAuthPromptCallback::onAuthCancelled on the provided
-     * callback.
-     *
-     * @throw NS_ERROR_NOT_IMPLEMENTED
-     *        Asynchronous authentication prompts are not supported;
-     *        the caller should fall back to promptUsernameAndPassword().
-     */
-    asyncPromptAuth : function capAPA(aChannel,   // nsIChannel
-                                      aCallback,  // nsIAuthPromptCallback
-                                      aContext,   // nsISupports
-                                      aLevel,     // PRUint32
-                                      aAuthInfo   // nsIAuthInformation
-                                ) {
-        let hostRealm = {};
-        hostRealm.prePath = aChannel.URI.prePath;
-        hostRealm.realm = aAuthInfo.realm;
-        let port = aChannel.URI.port;
-        if (port == -1) {
-            let IOService = Components.classes["@mozilla.org/network/io-service;1"]
-                                      .getService(Components.interfaces.nsIIOService2);
-
-            let handler = IOService.getProtocolHandler(aChannel.URI.scheme)
-                                   .QueryInterface(Components.interfaces.nsIProtocolHandler);
-            port = handler.defaultPort;
-        }
-        hostRealm.passwordRealm = aChannel.URI.host + ":" + port + " (" + aAuthInfo.realm + ")";
-
-        let pw = this.getPasswordInfo(hostRealm);
-        aAuthInfo.username = pw.username;
-        if (pw && pw.found) {
-            aAuthInfo.password = pw.password;
-            // We cannot call the callback directly here so call it from a timer
-            let timerCallback = {
-                notify: function(timer) {
-                    aCallback.onAuthAvailable(aContext, aAuthInfo);
-                }
-            };
-            let timer = Components.classes["@mozilla.org/timer;1"]
-                        .createInstance(Components.interfaces.nsITimer);
-            timer.initWithCallback(timerCallback,
-                                   0,
-                                   Components.interfaces.nsITimer.TYPE_ONE_SHOT);
-        } else {
-            let prompter2 = Components.classes["@mozilla.org/embedcomp/window-watcher;1"]
-                                      .getService(Components.interfaces.nsIPromptFactory)
-                                      .getPrompt(null, Components.interfaces.nsIAuthPrompt2);
-            prompter2.asyncPromptAuth(aChannel, aCallback, aContext, aLevel, aAuthInfo);
-        }
-    }
-};
-
-/* from Lightning: cal.BadCertHandler */
-/**
- * Bad Certificate Handler for Network Requests. Shows the Network Exception
- * Dialog if a certificate Problem occurs.
- */
-let _sogoWebDAVBadCertHandler = function calBadCertHandler(thisProvider) {
-    this.thisProvider = thisProvider;
-};
-
-_sogoWebDAVBadCertHandler.prototype = {
-    QueryInterface: function cBCL_QueryInterface(aIID) {
-        if (!aIID.equals(Components.interfaces.nsIBadCertListener2)
-            && !aIID.equals(Components.interfaces.nsISupports))
-            throw Components.results.NS_ERROR_NO_INTERFACE;
-        return this;
-    },
-
-    notifyCertProblem: function cBCL_notifyCertProblem(socketInfo, status, targetSite) {
-        if (!status) {
-            return true;
-        }
-
-        // Unfortunately we can't pass js objects using the window watcher, so
-        // we'll just take the first available calendar window. We also need to
-        // do this on a timer so that the modal window doesn't block the
-        // network request.
-        let wm = Components.classes["@mozilla.org/appshell/window-mediator;1"]
-                           .getService(Components.interfaces.nsIWindowMediator);
-        let calWindow = wm.getMostRecentWindow("calendarMainWindow") ||
-                        wm.getMostRecentWindow("mail:3pane");
-
-        let timerCallback = {
-            thisProvider: this.thisProvider,
-            notify: function(timer) {
-                let params = { exceptionAdded: false,
-                               prefetchCert: true,
-                               location: targetSite };
-                calWindow.openDialog("chrome://pippki/content/exceptionDialog.xul",
-                                     "",
-                                     "chrome,centerscreen,modal",
-                                     params);
-                if (this.thisProvider.canRefresh &&
-                    params.exceptionAdded) {
-                    // Refresh the provider if the
-                    // exception certificate was added
-                    this.thisProvider.refresh();
-                }
-            }
-        };
-        let timer = Components.classes["@mozilla.org/timer;1"]
-                              .createInstance(Components.interfaces.nsITimer);
-        timer.initWithCallback(timerCallback,
-                               0,
-                               Components.interfaces.nsITimer.TYPE_ONE_SHOT);
-        return true;
-    }
-};
-
 function sogoWebDAV(url, target, data, synchronous, asJSON) {
     this.url = url;
     this.target = target;
@@ -384,35 +148,24 @@ function sogoWebDAV(url, target, data, synchronous, asJSON) {
 }
 
 sogoWebDAV.prototype = {
+    
+    QueryInterface: XPCOMUtils.generateQI([Components.interfaces.nsIInterfaceRequestor]),
+
     _makeURI: function _makeURI(url) {
         var ioSvc = Components.classes["@mozilla.org/network/io-service;1"].
             getService(Components.interfaces.nsIIOService);
         return ioSvc.newURI(url, null, null);
     },
 
-    /* The following method code comes as-is from Lightning (cal.InterfaceRequestor_getInterface): */
-    _getInterface: function sogoWebDAV_getInterface(aIID) {
-        // Support Auth Prompt Interfaces
-        if (aIID.equals(Components.interfaces.nsIAuthPrompt2)) {
-            return new _sogoWebDAVPrompt();
-        } else if (aIID.equals(Components.interfaces.nsIAuthPromptProvider) ||
-                   aIID.equals(Components.interfaces.nsIPrompt)) {
-            return Components.classes["@mozilla.org/embedcomp/window-watcher;1"]
-                .getService(Components.interfaces.nsIWindowWatcher)
-                .getNewPrompter(null);
-        } else if (aIID.equals(Components.interfaces.nsIBadCertListener2)) {
-            return new _sogoWebDAVBadCertHandler(this);
-        } else if (aIID.equals(Components.interfaces.nsIProgressEventSink)) {
+    // See: http://mxr.mozilla.org/comm-central/source/calendar/base/modules/calProviderUtils.jsm
+    getInterface: function sogoWebDAV_getInterface(aIID) {
+        
+        if (aIID.equals(Components.interfaces.nsIProgressEventSink)) {
             return { onProgress: function sogoWebDAV_onProgress(aRequest, aContext, aProgress, aProgressMax) {},
                      onStatus: function sogoWebDAV_onStatus(aRequest, aContext, aStatus, aStatusArg) {} };
         }
-
-        dump("no interface in sogoWebDAV named " + aIID + "\n");
-
-        throw Components.results.NS_ERROR_NO_INTERFACE;
-
-//         Components.returnCode = Components.NS_ERROR_NO_INTERFACE;
-//         return null;
+        
+        return cal.InterfaceRequestor_getInterface.apply(this, arguments);
     },
 
     _sendHTTPRequest: function(method, body, headers) {
@@ -421,7 +174,7 @@ sogoWebDAV.prototype = {
         let channel = IOService.newChannelFromURI(this._makeURI(this.url));
         let httpChannel = channel.QueryInterface(Components.interfaces.nsIHttpChannel);
         httpChannel.loadFlags |= Components.interfaces.nsIRequest.LOAD_BYPASS_CACHE;
-        httpChannel.notificationCallbacks = { getInterface: this._getInterface };
+        httpChannel.notificationCallbacks = this;
         httpChannel.setRequestHeader("accept", "text/xml", false);
         httpChannel.setRequestHeader("accept-charset", "utf-8,*;q=0.1", false);
         if (headers) {
@@ -487,6 +240,7 @@ sogoWebDAV.prototype = {
             setTimeout("throw new Error('sogoWebDAV could not download calendar. Try disabling proxy server.')",0); 
             status = 499;
         }
+        dump("GOT STATUS: " + status + "\n");
         try {
             let headers = {};
             let response = null;

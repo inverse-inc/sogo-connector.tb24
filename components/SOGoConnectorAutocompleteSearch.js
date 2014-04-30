@@ -36,7 +36,7 @@
  * ***** END LICENSE BLOCK ***** */
 
 /* initial code from Mozilla Thundebird 3.1
- * - 2010-09-20: wsourdeau@inverse.ca: cloned and modified to use comment
+ * - 2010-09-20: info@inverse.ca: cloned and modified to use comment
      column from "sogo-connector.autoComplete.commentAttribute"
  */
 

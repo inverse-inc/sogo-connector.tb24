@@ -165,16 +165,15 @@ GroupDavSynchronizer.prototype = {
     abortOngoingSync: function() {
         if (!this.context.apiDisabled) {
             this.initSyncVariables();
-            if (this.context.requests[this.gURL])
-            {
-              dump("*** a request is already active for url: " + this.gURL + " Abort...\n");
-              this.abort();
-              alert("Synchronization of address book was aborted.");
-              
+            if (this.context.requests[this.gURL]) {
+                dump("*** a request is already active for url: " + this.gURL + " Abort...\n");
+                this.abort();
+                alert("Synchronization of address book was aborted.");
             }
-            else
-              alert("Address book is not being synchronized. Nothing to abort.");
-              dump("*** a request not active for url: " + this.gURL + " Nothing to abort.\n");
+            else {
+                alert("Address book is not being synchronized. Nothing to abort.");
+                dump("*** a request not active for url: " + this.gURL + " Nothing to abort.\n");
+            }
         }
     },
     start: function() {
@@ -314,11 +313,11 @@ GroupDavSynchronizer.prototype = {
      *
      ***********************************************************/
     fillServerHashes: function() {
-        // 		dump("fillServerHashes\n");
+        //dump("fillServerHashes\n");
         this.pendingOperations = 1;
-        // 		dump("pendingOperations: " + this.pendingOperations + "\n");
+        //dump("pendingOperations: " + this.pendingOperations + "\n");
         let data = {query: "server-check-propfind"};
-        // 		dump("fillServerHashes (url): " + this.gURL + "\n");
+        //dump("fillServerHashes (url): " + this.gURL + "\n");
         let request = new sogoWebDAV(this.gURL, this, data, undefined, true);
         request.propfind(["DAV: resourcetype", "DAV: supported-report-set",
                           "http://calendarserver.org/ns/ getctag"], false);
@@ -341,7 +340,7 @@ GroupDavSynchronizer.prototype = {
         }
 
         if (!hasDownloads) {
-            dump("  no download needed\n");
+            //dump("  no download needed\n");
             this.pendingOperations--;
             //  			dump("decreasing 1 pendingOperations...\n");
             this.checkCallback();
@@ -373,23 +372,24 @@ GroupDavSynchronizer.prototype = {
     },
     onDAVQueryComplete: function(status, response, headers, data) {
         this.callbackCode = status;
-        //     dump("request status: " + status + "\n");
+        //dump("request status: " + status + "\n");
+
         if (data.query == "vcard-download")
             this.onCardDownloadComplete(status, response, data.data);
         else if (data.query == "list-download")
-        this.onListDownloadComplete(status, response, data.data);
+            this.onListDownloadComplete(status, response, data.data);
         else if (data.query == "server-check-propfind")
-        this.onServerCheckComplete(status, response);
+            this.onServerCheckComplete(status, response);
         else if (data.query == "server-propfind")
-        this.onServerHashQueryComplete(status, response);
+            this.onServerHashQueryComplete(status, response);
         else if (data.query == "server-sync-query")
-        this.onServerSyncQueryComplete(status, response);
+            this.onServerSyncQueryComplete(status, response);
         else if (data.query == "card-upload")
-        this.onCardUploadComplete(status, response, data.key, data.data, headers);
+            this.onCardUploadComplete(status, response, data.key, data.data, headers);
         else if (data.query == "list-upload")
-        this.onListUploadComplete(status, response, data.key, data.data, headers);
+            this.onListUploadComplete(status, response, data.key, data.data, headers);
         else if (data.query == "server-finalize-propfind")
-        this.onServerFinalizeComplete(status, response);
+            this.onServerFinalizeComplete(status, response);
         else
             throw("unknown query: " + data.query);
     },
@@ -836,9 +836,10 @@ GroupDavSynchronizer.prototype = {
 
     onServerCheckComplete: function(status, jsonResponse) {
         this.pendingOperations = 0;
-        // 		dump("pendingOperations: " + this.pendingOperations + "\n");
-        //  		dump("status: " + status + "\n");
-        //  		dump("jsonResponse: " + jsonResponse + "\n");
+        
+        //dump("pendingOperations: " + this.pendingOperations + "\n");
+        //dump("status: " + status + "\n");
+        //dump("jsonResponse: " + jsonResponse + "\n");
 
         if (status > 199 && status < 400 && jsonResponse) {
             let responses = jsonResponse["multistatus"][0]["response"];
@@ -889,7 +890,7 @@ GroupDavSynchronizer.prototype = {
                     }
                 }
             }
-        }
+        } // if (status > 199 && status < 400 && jsonResponse) {
         else {
             setTimeout("throw new Error('Address book synchronzation could not contact server.')",0); 
             this.abort();
@@ -1499,13 +1500,14 @@ new:
         }
     },
     checkCallback: function() {
-        // 		dump("checkCallback:\n");
-        // 		dump("\n\nthis = " + this.mCounter + "\n");
-        // 		dump("  this.processMode: " + this.processMode + "\n");
-        // 		dump("  this.pendingOperations: " + this.pendingOperations + "\n");
-        // 		dump("  this.updatesStatus: " + this.updatesStatus + "\n");
-        // 		dump("_checkCallback: processMode: " + this.processMode + "\n");
-        // 		dump("_checkCallback: pendingOperations: " + this.pendingOperations + "\n");
+        //dump("checkCallback:\n");
+        //dump("\n\nthis = " + this.mCounter + "\n");
+        //dump("  this.processMode: " + this.processMode + "\n");
+        //dump("  this.pendingOperations: " + this.pendingOperations + "\n");
+        //dump("  this.updatesStatus: " + this.updatesStatus + "\n");
+        //dump("_checkCallback: processMode: " + this.processMode + "\n");
+        //dump("_checkCallback: pendingOperations: " + this.pendingOperations + "\n");
+        
         if (this.pendingOperations < 0) {
             this.context.requests[this.gURL] = null;
             throw "Buggy situation! (pendingOperations < 0)";
