@@ -795,7 +795,27 @@ GroupDavSynchronizer.prototype = {
 
         return href;
     },
+    //
+    // We check for URLs equality. If both HREF aren't identical, we then
+    // compare the host part and the last path component in order to avoid
+    // scenarios where we try to compare:
+    //
+    // http://sogo/SOGo/dav/sogo1/Contacts/personal and http://sogo/SOGo/dav/sogo1@example.com/Contacts/personal
+    //
+    // This is due to (generally) broken configurations in SOGo. Lightning does a similar trick, see:
+    //
+    // http://mxr.mozilla.org/comm-central/source/calendar/providers/caldav/calDavCalendar.js#1028
+    //
+    URLsAreEqual: function(href1, href2) {
+        if (href1 == href2)
+            return true;
+        
+        let resPathComponents1 = href1.split("/");
+        let resPathComponents2 = href2.split("/");
 
+        return ((resPathComponents1[2] == resPathComponents2[2]) &&
+                (resPathComponents1[resPathComponents1.length-2] == resPathComponents2[resPathComponents2.length-2]));
+    },
     /* The right way... */
     _detectWebdavSyncInSupportedReports: function(supportedReports) {
         let i = 0;
@@ -854,7 +874,7 @@ GroupDavSynchronizer.prototype = {
                             href = this.cleanedUpHref(href);
 
                         let prop = propstat["prop"][0];
-                        if (href == this.gURL) {
+                        if (this.URLsAreEqual(href,this.gURL)) {
                             let rsrcType = prop["resourcetype"][0];
                             if (rsrcType["vcard-collection"]
                                 || rsrcType["addressbook"]) {
@@ -1480,7 +1500,7 @@ new:
                             href = this.cleanedUpHref(href);
 
                         let prop = propstat["prop"][0];
-                        if (href == this.gURL) {
+                        if (this.URLsAreEqual(href,this.gURL)) {
                             let newCTag = prop["getctag"][0];
                             if (newCTag) {
                                 let groupdavPrefService = this.prefService();
