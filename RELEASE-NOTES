@@ -1,6 +1,11 @@
 NEWS
 ====
 
+24.0.6  We now correctly detect ACL changes on calendar components and
+        refresh the cache if necessary.
+        We also no longer require a Thunderbird restart when reloading
+        the cache from the server.
+
 24.0.5  We now ask for a confirmation when deleting cards (#1706)
         Fixed handling of 403 error codes when uploading cards (#2714)
         Added missing translation for hu-HU

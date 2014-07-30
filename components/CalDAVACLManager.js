@@ -13,10 +13,8 @@
  *
  * The Original Code is Inverse inc. code.
  *
- * The Initial Developer of the Original Code is
- *  Wolfgang Sourdeau  <wsourdeau@inverse.ca>
  * Portions created by the Initial Developer are
- *  Copyright (C) 2008-2011 Inverse inc. All Rights Reserved.
+ * Copyright (C) 2008-2014 Inverse inc. All Rights Reserved.
  *
  * Contributor(s):
  *
@@ -38,6 +36,26 @@ Components.utils.import("resource://gre/modules/XPCOMUtils.jsm");
 Components.utils.import("resource://gre/modules/Services.jsm");
 
 Components.utils.import("resource://calendar/modules/calUtils.jsm");
+Components.utils.import("resource://gre/modules/Preferences.jsm");
+
+function jsInclude(files, target) {
+    let loader = Components.classes["@mozilla.org/moz/jssubscript-loader;1"]
+                           .getService(Components.interfaces.mozIJSSubScriptLoader);
+    for (let i = 0; i < files.length; i++) {
+        try {
+            loader.loadSubScript(files[i], target);
+        }
+        catch(e) {
+            dump("CalDAVACLManager.js: failed to include '" + files[i] +
+                 "'\n" + e
+                 + "\nFile: " + e.fileName
+                 + "\nLine: " + e.lineNumber + "\n\n Stack:\n\n" + e.stack);
+        }
+    }
+}
+
+jsInclude(["chrome://inverse-library/content/calendar-cache.js"]);
+
 
 /* helpers */
 function fixURL(url) {
@@ -52,12 +70,6 @@ function fixURL(url) {
     return fixedURL;
 }
 
-/* CalDAVACLOfflineManager */
-function CalDAVACLOfflineManager() {
-    this.initDB();
-    this.wrappedJSObject = this;
-}
-
 function ExecuteSimpleStatement(db, stmtText) {
     let stmt = db.createStatement(stmtText);
     try {
@@ -68,6 +80,12 @@ function ExecuteSimpleStatement(db, stmtText) {
     finally {
         stmt.reset();
     };
+}
+
+/* CalDAVACLOfflineManager */
+function CalDAVACLOfflineManager() {
+    this.initDB();
+    this.wrappedJSObject = this;
 }
 
 CalDAVACLOfflineManager.prototype = {
@@ -252,6 +270,7 @@ CalDAVACLOfflineManager.prototype = {
     },
 
     getCalendarEntry: function CalDAVACLOfflineManager_getCalendarEntry(mgr, calendar, listener) {
+        //dump("\n\n\ngetCalendarEntry 2\n");
         let url = fixURL(calendar.uri.spec);
         this.mSelectCalendarEntry.params.url = url;
         let entry = null;
@@ -307,10 +326,32 @@ CalDAVACLOfflineManager.prototype = {
     },
 
     setCalendarEntry: function CalDAVACLOfflineManager_setCalendarEntry(calendar, entry, listener) {
-        // dump("setCalendarEntry\n");
+        //dump("\n\n\n\nsetCalendarEntry\n\n\n\n");
         let url = fixURL(calendar.uri.spec);
         let queries = [ this.mInsertCalendarEntry, this.mUpdateCalendarEntry ];
         let errors = 0;
+
+        // We first get the data from our cache. We'll use it later to see if we need to mark
+        // it as dirty since the value got from the server could be different.
+        this.mSelectCalendarEntry.params.url = url;
+        let cached_user_privileges = null;
+        try {
+            if (this.mSelectCalendarEntry.executeStep()) {
+                let row = this.mSelectCalendarEntry.row;
+                if (row.has_access_control == 1) {
+                    cached_user_privileges = row.user_privileges;
+                    //dump("CACHED userPrivileges: " +  cached_user_privileges + "\n");
+                }
+            }
+        }
+        catch(e) {
+            dump("setCalendarEntry - exception while trying to get cached entry: " + e + "\n:line: " +  e.lineNumber + "\n");
+            cached_user_privileges = null;
+        }
+        finally {
+            this.mSelectCalendarEntry.reset();
+        }
+
         for each (let query in queries) {
             let params = query.params;
             params.url = url;
@@ -318,6 +359,27 @@ CalDAVACLOfflineManager.prototype = {
             if (entry.hasAccessControl) {
                 // dump("has access control...\n");
                 params.user_privileges = this._serializeStringArray(entry.userPrivileges);
+                //dump("PARSED userPrivileges: " +  params.user_privileges  + "\n");
+
+                // Some value examples:
+                //
+                // {DAV:}read{DAV:}read-current-user-privilege-set{urn:ietf:params:xml:ns:caldav}read-free-busy{urn:inverse:params:xml:ns:inverse-dav}viewwhole-public-records
+                // {urn:inverse:params:xml:ns:inverse-dav}modify-public-records{urn:inverse:params:xml:ns:inverse-dav}respondto-public-records
+                // {urn:inverse:params:xml:ns:inverse-dav}viewdant-confidential-records
+                // 
+                // or
+                //
+                // {DAV:}read{DAV:}read-current-user-privilege-set{urn:ietf:params:xml:ns:caldav}read-free-busy{urn:inverse:params:xml:ns:inverse-dav}viewdant-public-records
+                //
+                // We check if we had a defined value, and if we ever fetched the 'custom dav' property in the {urn:inverse:params:xml:ns:inverse-dav} namespace and finally,
+                // if the values differ from the cached one and the one we're about to set. If so, we'll need to reload all calendar entries for that particular calender.
+                //
+                if (cached_user_privileges != null &&
+                    cached_user_privileges.indexOf("{urn:inverse:params:xml:ns:inverse-dav}") >=0 &&
+                    cached_user_privileges != params.user_privileges) {
+                    entry.dirty = true;
+                }
+
                 if (entry.userAddresses) {
                     params.user_addresses = entry.userAddresses.join("\u001A");
                 }
@@ -345,7 +407,8 @@ CalDAVACLOfflineManager.prototype = {
             finally {
                 query.reset();
             }
-        }
+        } // for each (let query in queries)
+        
         // dump("acl-db-manager: saved calendar entry, errors = "  + errors + "\n");
         if (listener) {
             listener.onOperationComplete(calendar,
@@ -531,6 +594,7 @@ CalDAVACLManager.prototype = {
     },
 
     getCalendarEntry: function cDACLM_getCalendarEntry(calendar, listener) {
+        //dump("\n\n\ngetCalendarEntry 1\n");
         if (calendar.type != "caldav") {
             Components.utils.reportError("CalDAVACLManager.js: calendar is not caldav");
             listener.onOperationComplete(calendar, Components.results.NS_ERROR_FAILURE,
@@ -545,10 +609,11 @@ CalDAVACLManager.prototype = {
 
         let url = fixURL(calendar.uri.spec);
 
-        // dump("getCalendarEntry: " + url + "\n");
+        //dump("getCalendarEntry: " + url + "\n");
 
         let entry = this.calendars[url];
         if (entry) {
+            dump("We notify from success..\n");
             this._notifyListenerSuccess(listener, calendar, entry);
             return;
         }
@@ -566,21 +631,29 @@ CalDAVACLManager.prototype = {
                 ASSERT(false, "unexpected!");
             },
             onOperationComplete: function cDACLM_getCalendarEntry_oL_onOperationComplete(opCalendar, opStatus, opType, opId, opDetail) {
+                dump("onOperationComplete 1\n");
                 let aEntry = opDetail;
                 if (Components.isSuccessCode(opStatus)) {
-                    // dump("acl-manager: we received a valid calendar entry, we cache it\n");
+                    //dump("acl-manager: we received a valid calendar entry, we cache it\n");
                     this_.calendars[url] = aEntry;
                 }
                 else {
-                    // dump("acl-manager: we did not receive a valid calendar entry, we FAKE it\n");
+                    //dump("acl-manager: we did not receive a valid calendar entry, we FAKE it\n");
                     this_._makeFallbackCalendarEntry(aEntry);
                 }
-                // dump("getCalendarEntry returned\n");
+                
+                dump("getCalendarEntry returned for cal: " + aEntry.uri.spec  + "\n");
 
                 for each (let data in this_.pendingCalendarOperations[url]) {
+                    //this_.mOfflineManager.setCalendarEntry(data.calendar, aEntry, null); // FIXME - should we call it?
                     this_._notifyListenerSuccess(data.listener, data.calendar, aEntry);
                 }
                 delete this_.pendingCalendarOperations[url];
+
+                if (aEntry.dirty) {
+                    dump("\n\n\nENTRY IS DIRTY FOR URL: " + aEntry.uri.spec + " WE MUST RESTART!!\n\n\n");
+                    reloadCalendarCache(aEntry.calendar);
+                }
             }
         };
 
@@ -745,10 +818,10 @@ CalDAVACLManager.prototype = {
         }
         else {
             if (data.method) {
-                // dump("data.method: " + data.method  + "\n");
-                // if (data.who) {
-                //     dump("  data.who: " + data.who  + "\n");
-                // }
+                //dump("data.method: " + data.method  + "\n");
+                //if (data.who) {
+                //    dump("  data.who: " + data.who  + "\n");
+                //}
                 let method = null;
                 if (typeof(data.method) == "string") {
                     let strMethods = {
@@ -789,24 +862,26 @@ CalDAVACLManager.prototype = {
         let this_ = this;
         let offlineListener = {
             onOperationComplete: function cDACLM__queryCalendarEntry_oL_onOperationComplete(opCalendar, opStatus, opEntry) {
-                if (Components.isSuccessCode(opStatus)) {
-                    // dump("acl-manager: received calendar entry from db\n");
-                    opEntry.aclManager = this_.wrappedJSObject;
-                    this_._notifyListenerSuccess(listener, opCalendar, opEntry);
-                }
-                else {
-                    if (this_.isOffline) {
-                        // dump("acl-manager: we did not receive calendar entry from db + offline -> error\n");
+                dump("onOperationComplete 2\n");
+                
+                if (this_.isOffline) {
+                    if (Components.isSuccessCode(opStatus)) {
+                        //dump("acl-manager: received calendar entry from db\n");
+                        opEntry.aclManager = this_.wrappedJSObject;
+                        this_._notifyListenerSuccess(listener, opCalendar, opEntry);
+                    }
+                    else {
+                        //dump("acl-manager: we did not receive calendar entry from db + offline -> error\n");
                         listener.onOperationComplete(opCalendar,
                                                      Components.results.NS_ERROR_FAILURE,
                                                      Components.interfaces.calIOperationListener.GET,
                                                      null, null);
                     }
-                    else {
-                        // dump("acl-manager: we did not receive calendar entry from db -> online query\n");
-                        let entry = new CalDAVAclCalendarEntry(calendar, this_);
-                        this_._queryOnlineCalendarEntry(entry, listener, false);
-                    }
+                } else {
+                    //dump("acl-manager: we did not receive calendar entry from db -> online query\n");
+                    //dump("acl-manager: we are online, let's refresh the ACLs\n");
+                    let entry = new CalDAVAclCalendarEntry(calendar, this_);
+                    this_._queryOnlineCalendarEntry(entry, listener, false);
                 }
             }
         };
@@ -973,7 +1048,7 @@ CalDAVACLManager.prototype = {
             let addressesKey = data.who + "Addresses";
             let identitiesKey = data.who + "Identities";
 
-            //dump("url: " + url + " addressesKey: " + addressesKey + " identitiesKey: " + identitiesKey + "\n");
+            dump("\n\n\n\n\n\n\nurl: " + url + " addressesKey: " + addressesKey + " identitiesKey: " + identitiesKey + "\n");
 
             let addresses = entry[addressesKey];
             if (!addresses) {
@@ -988,11 +1063,11 @@ CalDAVACLManager.prototype = {
                 }
             }
 
-            // dump("identities for calendar: " + data.calendar + "\n");
-            // dump("  type: " + data.who + "\n");
+            dump("identities for calendar: " + data.calendar + "\n");
+            dump("  type: " + data.who + "\n");
             let identities = entry[identitiesKey];
             if (!identities) {
-                // dump("new identities\n");
+                //dump("new identities\n");
                 identities = [];
                 entry[identitiesKey] = identities;
             }
@@ -1320,6 +1395,7 @@ CalDAVACLManager.prototype = {
                 ASSERT(false, "unexpected!");
             },
             onOperationComplete: function cDACLM_l_onOperationComplete(opCalendar, opStatus, opType, opId, opDetail) {
+                dump("onOperationComplete 3\n");
                 // dump("refresh backtrace: " + cal.STACK(30) + "\n");
                 if (!Components.isSuccessCode(opStatus)) {
                     this_._makeFallbackCalendarEntry(calEntry);
@@ -1345,6 +1421,7 @@ function CalDAVAclCalendarEntry(calendar, manager) {
     this.entries = {};
     this.userPrivileges = [];
     this.wrappedJSObject = this;
+    this.dirty = false;
 }
 
 CalDAVAclCalendarEntry.prototype = {
@@ -1361,6 +1438,7 @@ CalDAVAclCalendarEntry.prototype = {
     userIdentities: null,
     ownerIdentities: null,
     nbrAddressSets: null,
+    dirty: false,
 
     get userIsOwner() {
         let result = false;
@@ -1439,7 +1517,7 @@ CalDAVAclCalendarEntry.prototype = {
         /* we need to flush the item cache from the storage provider caches otherwise getItems will return items with an obsolete ACL entry */
         let jsCalendar = this.calendar.wrappedJSObject;
         let parentCalendar = jsCalendar.superCalendar.wrappedJSObject;
-        if (parentCalendar.mUncachedCalendar) { /* using calStorageCalendar */
+        if (parentCalendar.mCachedCalendar) { /* using calStorageCalendar */
             let storageCalendar = parentCalendar.mCachedCalendar.wrappedJSObject;
             if (storageCalendar.mItemCache) {
                 storageCalendar.mItemCache = {};

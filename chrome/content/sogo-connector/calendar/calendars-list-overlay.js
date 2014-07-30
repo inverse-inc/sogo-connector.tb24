@@ -1,19 +1,25 @@
-let iCc = Components.classes;
-let iCi = Components.interfaces;
-
-function reinitCalendarCache(aCalendar) {
-    let superCalendar = aCalendar.superCalendar.wrappedJSObject;
-    if (superCalendar && superCalendar.mCachedCalendar) {
-        let storageCalendar = superCalendar.mCachedCalendar.wrappedJSObject;
-        let listener = {
-            onDeleteCalendar: function reinitCalendarCache_onDeleteCalendar(cal, code, empty) {
-                dump("Storage emptied. Restarting...\n");
-                let appStartup = iCc["@mozilla.org/toolkit/app-startup;1"].getService(iCi.nsIAppStartup);
-                appStartup.quit(iCi.nsIAppStartup.eRestart | iCi.nsIAppStartup.eForceQuit);
-            }
-        };
-
-        dump("Deleting storage data...\n");
-        storageCalendar.deleteCalendar(storageCalendar, listener);
+function jsInclude(files, target) {
+    let loader = Components.classes["@mozilla.org/moz/jssubscript-loader;1"]
+                           .getService(Components.interfaces.mozIJSSubScriptLoader);
+    for (let i = 0; i < files.length; i++) {
+        try {
+            loader.loadSubScript(files[i], target);
+        }
+        catch(e) {
+            dump("calendars-list-overlay.js: failed to include '" + files[i] +
+                 "'\n" + e
+                 + "\nFile: " + e.fileName
+                 + "\nLine: " + e.lineNumber + "\n\n Stack:\n\n" + e.stack);
+        }
     }
+}
+
+jsInclude(["chrome://inverse-library/content/calendar-cache.js"]);
+
+//
+// This code was pretty much taken out from calCalendarManager.js: -changeCalendarCache
+// New SOGo properties were added in the propsToCopy array.
+//
+function reinitCalendarCache(aCalendar) {
+    reloadCalendarCache(aCalendar);
 }
