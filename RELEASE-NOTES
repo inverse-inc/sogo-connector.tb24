@@ -1,6 +1,8 @@
 NEWS
 ====
 
+24.0.7  Fixed Hungarian translation
+
 24.0.6  We now correctly detect ACL changes on calendar components and
         refresh the cache if necessary.
         We also no longer require a Thunderbird restart when reloading
